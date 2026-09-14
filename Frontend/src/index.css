@@ -1,0 +1,268 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ═══════════════════════════════════════════════════
+   TRANSICIONES GLOBALES DE TEMA — CODAINI
+   Cambio suave al alternar dark / light
+═══════════════════════════════════════════════════ */
+*,
+*::before,
+*::after {
+  transition-property: color, background-color, border-color, fill, stroke, box-shadow;
+  transition-duration: 300ms;
+  transition-timing-function: ease;
+}
+
+/* Excepciones: animaciones Framer Motion no deben verse afectadas */
+[data-framer-motion],
+.motion-safe\:transition-none {
+  transition: none !important;
+}
+
+/* ═══════════════════════════════════════════════════
+   VARIABLES CSS CODAINI
+   Para compatibilidad con Spline y efectos 3D futuros
+═══════════════════════════════════════════════════ */
+:root {
+  /* Dark Mode (predeterminado) */
+  --codaini-bg:           #0A192F;
+  --codaini-surface:      #112240;
+  --codaini-surface-2:    #172A46;
+  --codaini-cyan:         #64FFDA;
+  --codaini-text:         #CCD6F6;
+  --codaini-muted:        #8892B0;
+  --codaini-border:       #233554;
+  --codaini-highlight:    #E6F1FF;
+  --codaini-accent:       #64FFDA;
+
+  /* Estados */
+  --codaini-success:      #22C55E;
+  --codaini-warning:      #F59E0B;
+  --codaini-danger:       #EF4444;
+  --codaini-info:         #3B82F6;
+}
+
+:root.light {
+  /* Light Mode */
+  --codaini-bg:           #F5F7FA;
+  --codaini-surface:      #FFFFFF;
+  --codaini-surface-2:    #EAF0F6;
+  --codaini-cyan:         #0F766E;
+  --codaini-text:         #0A192F;
+  --codaini-muted:        #475569;
+  --codaini-border:       #CBD5E1;
+  --codaini-highlight:    #0A192F;
+  --codaini-accent:       #0F766E;
+}
+
+/* ═══════════════════════════════════════════════════
+   SCROLLBAR PERSONALIZADO
+═══════════════════════════════════════════════════ */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--codaini-surface);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--codaini-border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--codaini-cyan);
+}
+
+/* ═══════════════════════════════════════════════════
+   BODY Y TIPOGRAFÍA
+═══════════════════════════════════════════════════ */
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--codaini-bg);
+  color: var(--codaini-text);
+}
+
+/* ═══════════════════════════════════════════════════
+   ANIMACIONES
+═══════════════════════════════════════════════════ */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(100, 255, 218, 0.4); }
+  50%       { box-shadow: 0 0 0 8px rgba(100, 255, 218, 0); }
+}
+
+.animate-fadeIn    { animation: fadeIn 0.3s ease-in-out; }
+.animate-slideUp   { animation: slideUp 0.35s ease-out; }
+.animate-pulse-glow { animation: pulse-glow 2s infinite; }
+
+/* ═══════════════════════════════════════════════════
+   SWEETALERT2 — TEMA OSCURO (default)
+═══════════════════════════════════════════════════ */
+.swal2-dark .swal2-popup {
+  background-color: #112240 !important;
+  color: #CCD6F6 !important;
+  border: 1px solid #233554 !important;
+  border-radius: 1rem !important;
+}
+
+.swal2-dark .swal2-title {
+  color: #E6F1FF !important;
+}
+
+.swal2-dark .swal2-html-container {
+  color: #8892B0 !important;
+}
+
+.swal2-dark .swal2-input {
+  background-color: #172A46 !important;
+  border-color: #233554 !important;
+  color: #CCD6F6 !important;
+}
+
+.swal2-dark .swal2-input:focus {
+  border-color: #64FFDA !important;
+  box-shadow: 0 0 0 3px rgba(100, 255, 218, 0.2) !important;
+}
+
+.swal2-dark .swal2-confirm {
+  background-color: #64FFDA !important;
+  color: #0A192F !important;
+  font-weight: 600 !important;
+}
+
+.swal2-dark .swal2-cancel {
+  background-color: #233554 !important;
+  color: #CCD6F6 !important;
+}
+
+.swal2-dark .swal2-icon.swal2-warning {
+  border-color: #F59E0B !important;
+  color: #F59E0B !important;
+}
+
+.swal2-dark .swal2-icon.swal2-error {
+  border-color: #EF4444 !important;
+  color: #EF4444 !important;
+}
+
+.swal2-dark .swal2-icon.swal2-success {
+  border-color: #22C55E !important;
+  color: #22C55E !important;
+}
+
+.swal2-dark .swal2-icon.swal2-success [class^='swal2-success-line'] {
+  background-color: #22C55E !important;
+}
+
+.swal2-dark .swal2-icon.swal2-success .swal2-success-ring {
+  border-color: rgba(34, 197, 94, 0.3) !important;
+}
+
+/* ═══════════════════════════════════════════════════
+   SWEETALERT2 — TEMA CLARO
+═══════════════════════════════════════════════════ */
+.swal2-light .swal2-popup {
+  background-color: #FFFFFF !important;
+  color: #0A192F !important;
+  border: 1px solid #CBD5E1 !important;
+  border-radius: 1rem !important;
+}
+
+.swal2-light .swal2-title {
+  color: #0A192F !important;
+}
+
+.swal2-light .swal2-html-container {
+  color: #475569 !important;
+}
+
+.swal2-light .swal2-input {
+  background-color: #FFFFFF !important;
+  border-color: #CBD5E1 !important;
+  color: #0A192F !important;
+}
+
+.swal2-light .swal2-input:focus {
+  border-color: #0F766E !important;
+  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.2) !important;
+}
+
+.swal2-light .swal2-confirm {
+  background-color: #0F766E !important;
+  color: #FFFFFF !important;
+  font-weight: 600 !important;
+}
+
+.swal2-light .swal2-cancel {
+  background-color: #CBD5E1 !important;
+  color: #475569 !important;
+}
+
+/* ═══════════════════════════════════════════════════
+   RECHARTS — AJUSTES PARA MODO OSCURO
+═══════════════════════════════════════════════════ */
+.dark .recharts-cartesian-axis-tick text {
+  fill: #8892B0;
+}
+
+.dark .recharts-legend-item-text {
+  color: #8892B0 !important;
+}
+
+.dark .recharts-tooltip-wrapper .recharts-default-tooltip {
+  background-color: #112240 !important;
+  border-color: #233554 !important;
+  color: #CCD6F6 !important;
+}
+
+/* ═══════════════════════════════════════════════════
+   UTILIDADES ADICIONALES
+═══════════════════════════════════════════════════ */
+.glass-dark {
+  background: rgba(17, 34, 64, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(35, 53, 84, 0.6);
+}
+
+.glass-light {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(203, 213, 225, 0.6);
+}
+
+/* Focus ring CODAINI */
+.focus-codaini:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(100, 255, 218, 0.3);
+}
+
+.dark .focus-codaini:focus {
+  box-shadow: 0 0 0 3px rgba(100, 255, 218, 0.3);
+}
+
+.light .focus-codaini:focus,
+:root.light .focus-codaini:focus {
+  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.3);
+}
