@@ -1,34 +1,90 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Usuario, AuthContextType, RegistroFormData } from '../types';
+import { Usuario, AuthContextType } from '../types';
 import { mockUsuarios, generarIniciales } from '../data/mockData';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+
   const [user, setUser] = useState<Usuario | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  // Cargar usuario desde localStorage al iniciar
+  // ============================================================
+  // CARGAR SESIÓN ACTUAL
+  // ============================================================
   useEffect(() => {
+
     const storedUser = localStorage.getItem('currentUser');
+
     if (storedUser) {
-      const parsedUser = JSON.parse(storedUser);
-      setUser(parsedUser);
-      setIsAuthenticated(true);
+      try {
+        const parsedUser: Usuario = JSON.parse(storedUser);
+
+        setUser(parsedUser);
+        setIsAuthenticated(true);
+
+      } catch (error) {
+        console.error('Error al cargar currentUser:', error);
+        localStorage.removeItem('currentUser');
+      }
     }
+
   }, []);
 
-  // Login simulado
-  const login = async (email: string, password: string): Promise<boolean> => {
+  // ============================================================
+  // OBTENER PERFIL GUARDADO DEL USUARIO
+  // ============================================================
+  const obtenerPerfilGuardado = (email: string): Partial<Usuario> | null => {
+
+    const key = `profile_${email}`;
+
+    const storedProfile = localStorage.getItem(key);
+
+    if (!storedProfile) {
+      return null;
+    }
+
+    try {
+      return JSON.parse(storedProfile);
+    } catch (error) {
+      console.error('Error al leer perfil:', error);
+      return null;
+    }
+  };
+
+  // ============================================================
+  // GUARDAR PERFIL DEL USUARIO
+  // ============================================================
+  const guardarPerfil = (usuario: Usuario) => {
+
+    const key = `profile_${usuario.email}`;
+
+    localStorage.setItem(
+      key,
+      JSON.stringify(usuario)
+    );
+  };
+
+  // ============================================================
+  // LOGIN
+  // ============================================================
+  const login = async (
+    email: string,
+    password: string
+  ): Promise<boolean> => {
+
     // Buscar en mockUsuarios
     const foundUser = mockUsuarios.find(
       (u) => u.email === email && u.password === password
     );
 
-    // Buscar también en usuarios registrados en localStorage
+    // Buscar también en usuarios registrados
     const storedUsers = localStorage.getItem('registeredUsers');
-    let registeredUsers: Usuario[] = storedUsers ? JSON.parse(storedUsers) : [];
-    
+
+    const registeredUsers: Usuario[] = storedUsers
+      ? JSON.parse(storedUsers)
+      : [];
+
     const registeredUser = registeredUsers.find(
       (u) => u.email === email && u.password === password
     );
@@ -36,108 +92,233 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const authenticatedUser = foundUser || registeredUser;
 
     if (authenticatedUser) {
-      setUser(authenticatedUser);
+
+      // Buscar si este usuario ya tiene un perfil guardado
+      const perfilGuardado = obtenerPerfilGuardado(
+        authenticatedUser.email
+      );
+
+      // Combinar usuario original + cambios del perfil
+      const usuarioFinal: Usuario = {
+        ...authenticatedUser,
+        ...(perfilGuardado || {})
+      };
+
+      setUser(usuarioFinal);
       setIsAuthenticated(true);
-      localStorage.setItem('currentUser', JSON.stringify(authenticatedUser));
+
+      // Guardar únicamente la sesión actual
+      localStorage.setItem(
+        'currentUser',
+        JSON.stringify(usuarioFinal)
+      );
+
       return true;
     }
 
     return false;
   };
 
-  // Logout
+  // ============================================================
+  // LOGOUT
+  // ============================================================
   const logout = () => {
+
     setUser(null);
     setIsAuthenticated(false);
+
+    // SOLO eliminamos la sesión.
+    // NO eliminamos profile_correo@usuario.com
     localStorage.removeItem('currentUser');
   };
 
-  // Registro simulado
-  const register = async (userData: Partial<Usuario> & { confirmarPassword: string }): Promise<boolean> => {
+  // ============================================================
+  // REGISTRO
+  // ============================================================
+  const register = async (
+    userData: Partial<Usuario> & {
+      confirmarPassword: string;
+    }
+  ): Promise<boolean> => {
+
     try {
-      // Verificar que las contraseñas coincidan
+
+      // Verificar contraseñas
       if (userData.password !== userData.confirmarPassword) {
         return false;
       }
 
-      // Verificar que el email no exista
-      const existingUser = mockUsuarios.find((u) => u.email === userData.email);
+      // Verificar email en mockUsuarios
+      const existingUser = mockUsuarios.find(
+        (u) => u.email === userData.email
+      );
+
       if (existingUser) {
         return false;
       }
 
-      // Verificar en usuarios registrados
+      // Obtener usuarios registrados
       const storedUsers = localStorage.getItem('registeredUsers');
-      let registeredUsers: Usuario[] = storedUsers ? JSON.parse(storedUsers) : [];
-      
-      const existingRegisteredUser = registeredUsers.find((u) => u.email === userData.email);
+
+      const registeredUsers: Usuario[] = storedUsers
+        ? JSON.parse(storedUsers)
+        : [];
+
+      // Verificar email
+      const existingRegisteredUser = registeredUsers.find(
+        (u) => u.email === userData.email
+      );
+
       if (existingRegisteredUser) {
         return false;
       }
 
-      // Crear nuevo usuario
+      // Crear usuario
       const newUser: Usuario = {
+
         id: `${Date.now()}`,
+
         nombre: userData.nombre || '',
+
         apellidos: userData.apellidos || '',
+
         email: userData.email || '',
+
         password: userData.password || '',
+
         telefono: userData.telefono || '',
+
         rol: userData.rol || 'Usuario',
-        iniciales: generarIniciales(userData.nombre || '', userData.apellidos || ''),
+
+        iniciales: generarIniciales(
+          userData.nombre || '',
+          userData.apellidos || ''
+        ),
+
         estado: 'Activo',
-        fechaRegistro: new Date().toISOString().split('T')[0],
+
+        fechaRegistro: new Date()
+          .toISOString()
+          .split('T')[0],
+
         fotoPerfil: userData.fotoPerfil,
       };
 
-      // Guardar en localStorage
+      // Guardar usuario registrado
       registeredUsers.push(newUser);
-      localStorage.setItem('registeredUsers', JSON.stringify(registeredUsers));
+
+      localStorage.setItem(
+        'registeredUsers',
+        JSON.stringify(registeredUsers)
+      );
 
       return true;
+
     } catch (error) {
+
       console.error('Error en registro:', error);
+
       return false;
     }
   };
 
-  // Actualizar usuario
+  // ============================================================
+  // ACTUALIZAR USUARIO
+  // ============================================================
   const updateUser = (userData: Partial<Usuario>) => {
-    if (user) {
-      const updatedUser = { ...user, ...userData };
-      setUser(updatedUser);
-      localStorage.setItem('currentUser', JSON.stringify(updatedUser));
 
-      // Actualizar también en la lista de usuarios registrados
-      const storedUsers = localStorage.getItem('registeredUsers');
-      if (storedUsers) {
-        let registeredUsers: Usuario[] = JSON.parse(storedUsers);
-        const userIndex = registeredUsers.findIndex((u) => u.id === user.id);
-        if (userIndex !== -1) {
-          registeredUsers[userIndex] = updatedUser;
-          localStorage.setItem('registeredUsers', JSON.stringify(registeredUsers));
-        }
+    if (!user) {
+      return;
+    }
+
+    // Crear usuario actualizado
+    const updatedUser: Usuario = {
+      ...user,
+      ...userData
+    };
+
+    // Actualizar estado React
+    setUser(updatedUser);
+
+    // Guardar sesión actual
+    localStorage.setItem(
+      'currentUser',
+      JSON.stringify(updatedUser)
+    );
+
+    // ========================================================
+    // GUARDAR PERFIL PERMANENTEMENTE
+    // ========================================================
+
+    guardarPerfil(updatedUser);
+
+    // ========================================================
+    // ACTUALIZAR TAMBIÉN registeredUsers
+    // ========================================================
+
+    const storedUsers = localStorage.getItem('registeredUsers');
+
+    if (storedUsers) {
+
+      const registeredUsers: Usuario[] =
+        JSON.parse(storedUsers);
+
+      const userIndex = registeredUsers.findIndex(
+        (u) => u.id === user.id
+      );
+
+      if (userIndex !== -1) {
+
+        registeredUsers[userIndex] = updatedUser;
+
+        localStorage.setItem(
+          'registeredUsers',
+          JSON.stringify(registeredUsers)
+        );
       }
     }
   };
 
+  // ============================================================
+  // CONTEXT
+  // ============================================================
+
   const value: AuthContextType = {
+
     user,
+
     login,
+
     logout,
+
     register,
+
     updateUser,
+
     isAuthenticated,
+
   };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+    </AuthContext.Provider>
+  );
 };
 
-// Hook personalizado para usar el contexto
+// ============================================================
+// HOOK
+// ============================================================
+
 export const useAuth = () => {
+
   const context = useContext(AuthContext);
+
   if (context === undefined) {
-    throw new Error('useAuth debe ser usado dentro de un AuthProvider');
+    throw new Error(
+      'useAuth debe ser usado dentro de un AuthProvider'
+    );
   }
+
   return context;
 };
