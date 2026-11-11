@@ -118,11 +118,14 @@ body {
 /* ═══════════════════════════════════════════════════
    SWEETALERT2 — TEMA OSCURO (default)
 ═══════════════════════════════════════════════════ */
-.swal2-dark .swal2-popup {
+.swal2-dark .swal2-popup,
+.swal2-popup.swal2-dark,
+.swal2-container.swal2-dark .swal2-popup {
   background-color: #112240 !important;
   color: #CCD6F6 !important;
   border: 1px solid #233554 !important;
   border-radius: 1rem !important;
+  box-shadow: 0 20px 25px -5px rgba(10, 25, 47, 0.5), 0 8px 10px -6px rgba(10, 25, 47, 0.5) !important;
 }
 
 .swal2-dark .swal2-title {
@@ -181,11 +184,14 @@ body {
 /* ═══════════════════════════════════════════════════
    SWEETALERT2 — TEMA CLARO
 ═══════════════════════════════════════════════════ */
-.swal2-light .swal2-popup {
+.swal2-light .swal2-popup,
+.swal2-popup.swal2-light,
+.swal2-container.swal2-light .swal2-popup {
   background-color: #FFFFFF !important;
   color: #0A192F !important;
   border: 1px solid #CBD5E1 !important;
   border-radius: 1rem !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
 }
 
 .swal2-light .swal2-title {

@@ -7,6 +7,8 @@ import Swal from 'sweetalert2';
 import { useTheme } from '../context/ThemeContext';
 import { getSwalSuccessConfig } from '../utils/swalTheme';
 import { tc, getChartColors } from '../utils/themeClasses';
+import { ChartTooltipProps } from '../types';
+import { proyectosService, tareasService, asistenciasService, clientesService } from '../services/api';
 
 const Reportes: React.FC = () => {
   const { isDark } = useTheme();
@@ -21,20 +23,74 @@ const Reportes: React.FC = () => {
     { mes: 'Jun', proyectos: 9,  tareas: 25 },
   ];
 
-  const handleDownload = (tipo: string) => {
-    Swal.fire({
-      ...getSwalSuccessConfig(isDark),
-      title: 'Reporte generado',
-      text: `El reporte de ${tipo} se está descargando...`,
-    });
+  const triggerCsvDownload = (filename: string, csvContent: string) => {
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', filename);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
   };
 
-  const CustomTooltip = ({ active, payload, label }: any) => {
+  const handleDownload = async (tipo: string) => {
+    const dateStr = new Date().toISOString().split('T')[0];
+    try {
+      if (tipo === 'Proyectos') {
+        const data = await proyectosService.getAll();
+        const header = 'ID,Nombre,Cliente,Responsable,Estado,Progreso,Fecha Inicio,Fecha Limite,Presupuesto\n';
+        const rows = data.map((p) =>
+          `"${p.id}","${p.nombre.replace(/"/g, '""')}","${p.cliente}","${p.responsable}","${p.estado}","${p.progreso}%","${p.fechaInicio}","${p.fechaLimite}","${p.presupuesto || 0}"`
+        ).join('\n');
+        triggerCsvDownload(`reporte_proyectos_${dateStr}.csv`, header + rows);
+      } else if (tipo === 'Tareas') {
+        const data = await tareasService.getAll();
+        const header = 'ID,Titulo,Proyecto,Responsable,Prioridad,Estado,Fecha Limite\n';
+        const rows = data.map((t) =>
+          `"${t.id}","${t.titulo.replace(/"/g, '""')}","${t.proyecto}","${t.responsable}","${t.prioridad}","${t.estado}","${t.fechaLimite}"`
+        ).join('\n');
+        triggerCsvDownload(`reporte_tareas_${dateStr}.csv`, header + rows);
+      } else if (tipo === 'Asistencias') {
+        const data = await asistenciasService.getAll();
+        const header = 'ID,Trabajador,Fecha,Hora Entrada,Hora Salida,Estado\n';
+        const rows = data.map((a) =>
+          `"${a.id}","${a.trabajador}","${a.fecha}","${a.horaEntrada}","${a.horaSalida || ''}","${a.estado}"`
+        ).join('\n');
+        triggerCsvDownload(`reporte_asistencias_${dateStr}.csv`, header + rows);
+      } else if (tipo === 'Clientes') {
+        const data = await clientesService.getAll();
+        const header = 'ID,Empresa,RUC,Contacto,Email,Telefono,Estado\n';
+        const rows = data.map((c) =>
+          `"${c.id}","${c.empresa.replace(/"/g, '""')}","${c.ruc}","${c.contacto}","${c.email}","${c.telefono}","${c.estado}"`
+        ).join('\n');
+        triggerCsvDownload(`reporte_clientes_${dateStr}.csv`, header + rows);
+      }
+
+      Swal.fire({
+        ...getSwalSuccessConfig(isDark),
+        title: 'Reporte generado',
+        text: `El reporte de ${tipo} ha sido descargado exitosamente.`,
+        timer: 2000,
+        showConfirmButton: false,
+      });
+    } catch {
+      Swal.fire({
+        ...getSwalSuccessConfig(isDark),
+        icon: 'error',
+        title: 'Error',
+        text: `No se pudo exportar el reporte de ${tipo}.`,
+      });
+    }
+  };
+
+  const CustomTooltip: React.FC<ChartTooltipProps> = ({ active, payload, label }) => {
     if (active && payload?.length) {
       return (
         <div className={`${tc.card} p-3 text-sm`}>
           <p className={`font-semibold ${tc.textPrimary} mb-1`}>{label}</p>
-          {payload.map((p: any, i: number) => (
+          {payload.map((p, i: number) => (
             <p key={i} style={{ color: p.color }}>{p.name}: {p.value}</p>
           ))}
         </div>

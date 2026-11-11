@@ -1,122 +1,89 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Usuario, AuthContextType, RegistroFormData } from '../types';
-import { mockUsuarios, generarIniciales } from '../data/mockData';
+import React, { createContext, useContext, useState } from 'react';
+import { Usuario, AuthContextType } from '../types';
+import { authService } from '../services/api';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<Usuario | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-
-  // Cargar usuario desde localStorage al iniciar
-  useEffect(() => {
-    const storedUser = localStorage.getItem('currentUser');
-    if (storedUser) {
-      const parsedUser = JSON.parse(storedUser);
-      setUser(parsedUser);
-      setIsAuthenticated(true);
+  const [user, setUser] = useState<Usuario | null>(() => {
+    try {
+      const storedUser = localStorage.getItem('currentUser');
+      const storedToken = localStorage.getItem('token');
+      if (storedUser && storedToken) {
+        return JSON.parse(storedUser);
+      }
+    } catch {
+      localStorage.removeItem('currentUser');
+      localStorage.removeItem('token');
     }
-  }, []);
+    return null;
+  });
 
-  // Login simulado
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    try {
+      const storedUser = localStorage.getItem('currentUser');
+      const storedToken = localStorage.getItem('token');
+      return Boolean(storedUser && storedToken);
+    } catch {
+      return false;
+    }
+  });
+
   const login = async (email: string, password: string): Promise<boolean> => {
-    // Buscar en mockUsuarios
-    const foundUser = mockUsuarios.find(
-      (u) => u.email === email && u.password === password
-    );
+    try {
+      const response = await authService.login(email, password);
+      const { token, user: userData } = response;
 
-    // Buscar también en usuarios registrados en localStorage
-    const storedUsers = localStorage.getItem('registeredUsers');
-    let registeredUsers: Usuario[] = storedUsers ? JSON.parse(storedUsers) : [];
-    
-    const registeredUser = registeredUsers.find(
-      (u) => u.email === email && u.password === password
-    );
-
-    const authenticatedUser = foundUser || registeredUser;
-
-    if (authenticatedUser) {
-      setUser(authenticatedUser);
+      localStorage.setItem('token', token);
+      localStorage.setItem('currentUser', JSON.stringify(userData));
+      setUser(userData);
       setIsAuthenticated(true);
-      localStorage.setItem('currentUser', JSON.stringify(authenticatedUser));
       return true;
+    } catch (error: unknown) {
+      const message =
+        (error as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+        'Correo o contraseña incorrectos';
+      throw new Error(message);
     }
-
-    return false;
   };
 
-  // Logout
   const logout = () => {
     setUser(null);
     setIsAuthenticated(false);
+    localStorage.removeItem('token');
     localStorage.removeItem('currentUser');
+    localStorage.removeItem('registeredUsers');
   };
 
-  // Registro simulado
-  const register = async (userData: Partial<Usuario> & { confirmarPassword: string }): Promise<boolean> => {
+  const register = async (
+    userData: Partial<Usuario> & { confirmarPassword: string }
+  ): Promise<boolean> => {
     try {
-      // Verificar que las contraseñas coincidan
-      if (userData.password !== userData.confirmarPassword) {
-        return false;
-      }
-
-      // Verificar que el email no exista
-      const existingUser = mockUsuarios.find((u) => u.email === userData.email);
-      if (existingUser) {
-        return false;
-      }
-
-      // Verificar en usuarios registrados
-      const storedUsers = localStorage.getItem('registeredUsers');
-      let registeredUsers: Usuario[] = storedUsers ? JSON.parse(storedUsers) : [];
-      
-      const existingRegisteredUser = registeredUsers.find((u) => u.email === userData.email);
-      if (existingRegisteredUser) {
-        return false;
-      }
-
-      // Crear nuevo usuario
-      const newUser: Usuario = {
-        id: `${Date.now()}`,
-        nombre: userData.nombre || '',
-        apellidos: userData.apellidos || '',
-        email: userData.email || '',
-        password: userData.password || '',
-        telefono: userData.telefono || '',
-        rol: userData.rol || 'Usuario',
-        iniciales: generarIniciales(userData.nombre || '', userData.apellidos || ''),
-        estado: 'Activo',
-        fechaRegistro: new Date().toISOString().split('T')[0],
-        fotoPerfil: userData.fotoPerfil,
-      };
-
-      // Guardar en localStorage
-      registeredUsers.push(newUser);
-      localStorage.setItem('registeredUsers', JSON.stringify(registeredUsers));
-
+      const { confirmarPassword, ...payload } = userData;
+      await authService.register(payload);
       return true;
-    } catch (error) {
-      console.error('Error en registro:', error);
-      return false;
+    } catch (error: unknown) {
+      const message =
+        (error as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+        'No se pudo crear la cuenta';
+      throw new Error(message);
     }
   };
 
-  // Actualizar usuario
-  const updateUser = (userData: Partial<Usuario>) => {
-    if (user) {
-      const updatedUser = { ...user, ...userData };
-      setUser(updatedUser);
-      localStorage.setItem('currentUser', JSON.stringify(updatedUser));
+  const updateUser = async (userData: Partial<Usuario>): Promise<void> => {
+    try {
+      if (user) {
+        const response = await authService.updateUser(userData);
+        const updatedUser = response;
 
-      // Actualizar también en la lista de usuarios registrados
-      const storedUsers = localStorage.getItem('registeredUsers');
-      if (storedUsers) {
-        let registeredUsers: Usuario[] = JSON.parse(storedUsers);
-        const userIndex = registeredUsers.findIndex((u) => u.id === user.id);
-        if (userIndex !== -1) {
-          registeredUsers[userIndex] = updatedUser;
-          localStorage.setItem('registeredUsers', JSON.stringify(registeredUsers));
-        }
+        setUser(updatedUser);
+        localStorage.setItem('currentUser', JSON.stringify(updatedUser));
+      }
+    } catch {
+      setUser((prev) => (prev ? { ...prev, ...userData } : prev));
+      if (user) {
+        const updatedUser = { ...user, ...userData };
+        localStorage.setItem('currentUser', JSON.stringify(updatedUser));
       }
     }
   };
@@ -133,7 +100,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
-// Hook personalizado para usar el contexto
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {

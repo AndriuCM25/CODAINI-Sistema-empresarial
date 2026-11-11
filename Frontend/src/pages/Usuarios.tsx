@@ -1,21 +1,22 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { mockUsuarios, generarIniciales } from '../data/mockData';
 import { Usuario, RolType } from '../types';
+import { usuariosService } from '../services/api';
 import Badge from '../components/ui/Badge';
 import SearchBar from '../components/ui/SearchBar';
 import Avatar from '../components/ui/Avatar';
 import DataTable from '../components/tables/DataTable';
 import Button from '../components/ui/Button';
 import Modal from '../components/ui/Modal';
+import Loading from '../components/ui/Loading';
 import { tc } from '../utils/themeClasses';
 import { useTheme } from '../context/ThemeContext';
 import {
   UserPlus, User, Mail, Phone, Lock, Eye, EyeOff,
-  HardHat, Building2, Shield,
+  HardHat, Building2, Shield, Trash2, UserCheck, UserX,
 } from 'lucide-react';
 import Swal from 'sweetalert2';
-import { getSwalConfig } from '../utils/swalTheme';
+import { getSwalConfig, getSwalDeleteConfig } from '../utils/swalTheme';
 
 interface NuevoUsuarioForm {
   nombre: string;
@@ -32,7 +33,7 @@ interface NuevoUsuarioForm {
 const rolOpciones: { valor: RolType; label: string; icon: React.ReactNode; desc: string }[] = [
   { valor: 'Administrador', label: 'Administrador', icon: <Shield className="w-5 h-5" />,   desc: 'Acceso total al sistema' },
   { valor: 'Trabajador',    label: 'Trabajador',    icon: <HardHat className="w-5 h-5" />,   desc: 'Proyectos, tareas y asistencia' },
-  { valor: 'Usuario',       label: 'Usuario / Cliente', icon: <Building2 className="w-5 h-5" />, desc: 'Solo vista de sus proyectos' },
+  { valor: 'Cliente',       label: 'Cliente',       icon: <Building2 className="w-5 h-5" />, desc: 'Solo vista de sus proyectos' },
 ];
 
 const defaultForm: NuevoUsuarioForm = {
@@ -48,15 +49,35 @@ const Usuarios: React.FC = () => {
   const [form, setForm]               = useState<NuevoUsuarioForm>(defaultForm);
   const [showPass, setShowPass]       = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-  const [usuarios, setUsuarios]       = useState<Usuario[]>(mockUsuarios);
+  const [usuarios, setUsuarios]       = useState<Usuario[]>([]);
+  const [filtered, setFiltered]       = useState<Usuario[]>([]);
+  const [isLoading, setIsLoading]     = useState(true);
 
-  /* ── Filtro de búsqueda ─────────────────────────────────────── */
-  const filtered = usuarios.filter(
-    (u) =>
-      u.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      u.apellidos.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      u.email.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  useEffect(() => {
+    const fetchUsuarios = async () => {
+      try {
+        const data = await usuariosService.getAll();
+        setUsuarios(data);
+        setFiltered(data);
+      } catch {
+        setUsuarios([]);
+        setFiltered([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchUsuarios();
+  }, []);
+
+  useEffect(() => {
+    const filtered = usuarios.filter(
+      (u) =>
+        u.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (u.apellidos || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        u.email.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    setFiltered(filtered);
+  }, [searchTerm, usuarios]);
 
   /* ── Cambios en el formulario ───────────────────────────────── */
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) =>
@@ -65,7 +86,7 @@ const Usuarios: React.FC = () => {
   const handleRol = (rol: RolType) => setForm((prev) => ({ ...prev, rol }));
 
   /* ── Validación y creación ──────────────────────────────────── */
-  const handleCrear = () => {
+  const handleCrear = async () => {
     const cfg = getSwalConfig(isDark);
 
     if (!form.nombre.trim() || !form.apellidos.trim()) {
@@ -87,36 +108,91 @@ const Usuarios: React.FC = () => {
       return Swal.fire({ ...cfg, icon: 'error', title: 'Contraseñas no coinciden', text: 'Verifica que ambas contraseñas sean iguales.' });
     }
 
-    const nuevo: Usuario = {
-      id:             String(Date.now()),
-      nombre:         form.nombre.trim(),
-      apellidos:      form.apellidos.trim(),
-      email:          form.email.trim().toLowerCase(),
-      password:       form.password,
-      telefono:       form.telefono.trim(),
-      rol:            form.rol as RolType,
-      iniciales:      generarIniciales(form.nombre, form.apellidos),
-      estado:         'Activo',
-      fechaRegistro:  new Date().toISOString().split('T')[0],
+    const payload = {
+      nombre: form.nombre.trim(),
+      apellidos: form.apellidos.trim(),
+      email: form.email.trim().toLowerCase(),
+      password: form.password,
+      telefono: form.telefono.trim(),
+      rol: form.rol,
+      ...(form.rol === 'Trabajador' && { cargo: form.cargo, area: form.area }),
     };
 
-    // Persistir en localStorage para que el login lo reconozca
-    const stored = localStorage.getItem('registeredUsers');
-    const registrados: Usuario[] = stored ? JSON.parse(stored) : [];
-    registrados.push(nuevo);
-    localStorage.setItem('registeredUsers', JSON.stringify(registrados));
+    try {
+      const nuevo = await usuariosService.create(payload);
+      const updated = [...usuarios, nuevo];
+      setUsuarios(updated);
+      setFiltered(updated);
+      setModalOpen(false);
+      setForm(defaultForm);
 
-    setUsuarios((prev) => [...prev, nuevo]);
-    setModalOpen(false);
-    setForm(defaultForm);
+      Swal.fire({
+        ...getSwalConfig(isDark),
+        icon: 'success',
+        title: 'Usuario creado',
+        text: `${nuevo.nombre} ${nuevo.apellidos || ''} fue registrado exitosamente.`,
+        timer: 2500,
+        showConfirmButton: false,
+      });
+    } catch {
+      Swal.fire({
+        ...getSwalConfig(isDark),
+        icon: 'error',
+        title: 'Error',
+        text: 'No se pudo crear el usuario.',
+      });
+    }
+  };
 
+  const handleToggleEstado = async (u: Usuario) => {
+    const nuevoEstado = u.estado === 'Activo' ? 'Inactivo' : 'Activo';
+    try {
+      const updated = await usuariosService.update(u.id, { estado: nuevoEstado });
+      setUsuarios((prev) => prev.map((item) => (item.id === u.id ? updated : item)));
+      Swal.fire({
+        ...getSwalConfig(isDark),
+        icon: 'success',
+        title: 'Estado actualizado',
+        text: `El usuario ahora está ${nuevoEstado}.`,
+        timer: 1500,
+        showConfirmButton: false,
+      });
+    } catch {
+      Swal.fire({
+        ...getSwalConfig(isDark),
+        icon: 'error',
+        title: 'Error',
+        text: 'No se pudo actualizar el estado del usuario.',
+      });
+    }
+  };
+
+  const handleDelete = (u: Usuario) => {
     Swal.fire({
-      ...getSwalConfig(isDark),
-      icon: 'success',
-      title: 'Usuario creado',
-      text: `${nuevo.nombre} ${nuevo.apellidos} fue registrado exitosamente.`,
-      timer: 2500,
-      showConfirmButton: false,
+      ...getSwalDeleteConfig(isDark),
+      title: '¿Eliminar usuario?',
+      text: `Se eliminará a ${u.nombre} del sistema.`,
+    }).then(async (result) => {
+      if (result.isConfirmed) {
+        try {
+          await usuariosService.delete(u.id);
+          setUsuarios((prev) => prev.filter((item) => item.id !== u.id));
+          Swal.fire({
+            ...getSwalConfig(isDark),
+            icon: 'success',
+            title: 'Usuario eliminado',
+            timer: 1500,
+            showConfirmButton: false,
+          });
+        } catch {
+          Swal.fire({
+            ...getSwalConfig(isDark),
+            icon: 'error',
+            title: 'Error',
+            text: 'No se pudo eliminar el usuario en el servidor.',
+          });
+        }
+      }
     });
   };
 
@@ -128,7 +204,7 @@ const Usuarios: React.FC = () => {
         <div className="flex items-center space-x-3">
           <Avatar src={u.fotoPerfil} iniciales={u.iniciales} size="sm" />
           <div>
-            <p className={`font-medium text-sm ${tc.textPrimary}`}>{u.nombre} {u.apellidos}</p>
+             <p className={`font-medium text-sm ${tc.textPrimary}`}>{u.nombre} {u.apellidos || ''}</p>
             <p className={`text-xs ${tc.textMuted}`}>{u.email}</p>
           </div>
         </div>
@@ -151,7 +227,32 @@ const Usuarios: React.FC = () => {
     },
     {
       header: 'Fecha Registro',
-      accessor: (u: Usuario) => new Date(u.fechaRegistro).toLocaleDateString(),
+       accessor: (u: Usuario) => u.fechaRegistro ? new Date(u.fechaRegistro).toLocaleDateString() : '—',
+    },
+    {
+      header: 'Acciones',
+      accessor: (u: Usuario) => (
+        <div className="flex items-center space-x-1.5">
+          <button
+            onClick={() => handleToggleEstado(u)}
+            className="p-1.5 rounded hover:bg-light-surface-2 dark:hover:bg-codaini-navy transition-colors"
+            title={u.estado === 'Activo' ? 'Desactivar usuario' : 'Activar usuario'}
+          >
+            {u.estado === 'Activo' ? (
+              <UserX className="w-4 h-4 text-amber-500" />
+            ) : (
+              <UserCheck className="w-4 h-4 text-emerald-500" />
+            )}
+          </button>
+          <button
+            onClick={() => handleDelete(u)}
+            className="p-1.5 rounded text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+            title="Eliminar usuario"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </div>
+      ),
     },
   ];
 
@@ -186,6 +287,10 @@ const Usuarios: React.FC = () => {
   );
 
   /* ── Render ─────────────────────────────────────────────────── */
+  if (isLoading) {
+    return <Loading text="Cargando usuarios..." fullPage />;
+  }
+
   return (
     <div className="space-y-6">
       {/* Encabezado */}

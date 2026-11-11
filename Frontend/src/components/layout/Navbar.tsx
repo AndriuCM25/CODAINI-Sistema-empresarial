@@ -5,7 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import Avatar from '../ui/Avatar';
 import { motion, AnimatePresence } from 'framer-motion';
-import { mockNotificaciones } from '../../data/mockData';
+import { Notificacion } from '../../types';
 import { tc } from '../../utils/themeClasses';
 
 interface NavbarProps {
@@ -18,8 +18,9 @@ const Navbar: React.FC<NavbarProps> = ({ onMenuClick, title }) => {
   const { isDark, toggleTheme } = useTheme();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [notificaciones, setNotificaciones] = useState<Notificacion[]>([]);
 
-  const unreadNotifications = mockNotificaciones.filter((n) => !n.leida);
+  const unreadNotifications = notificaciones.filter((n) => !n.leida);
 
   return (
     <nav className={`${tc.navbar} px-4 py-3 sticky top-0 z-30`}>
@@ -117,12 +118,12 @@ const Navbar: React.FC<NavbarProps> = ({ onMenuClick, title }) => {
                       )}
                     </div>
                     <div className="max-h-80 overflow-y-auto">
-                      {mockNotificaciones.length === 0 ? (
+                      {notificaciones.length === 0 ? (
                         <div className={`p-6 text-center ${tc.textMuted}`}>
                           No hay notificaciones
                         </div>
                       ) : (
-                        mockNotificaciones.map((notif) => (
+                        notificaciones.map((notif) => (
                           <div
                             key={notif.id}
                             className={`p-4 border-b ${tc.border} ${tc.hoverCard} transition-colors ${
@@ -197,9 +198,9 @@ const Navbar: React.FC<NavbarProps> = ({ onMenuClick, title }) => {
                           size="md"
                         />
                         <div>
-                          <p className={`font-semibold text-sm ${tc.textPrimary}`}>
-                            {user?.nombre} {user?.apellidos}
-                          </p>
+                           <p className={`font-semibold text-sm ${tc.textPrimary}`}>
+                             {user?.nombre} {user?.apellidos || ''}
+                           </p>
                           <p className={`text-xs ${tc.textMuted} truncate max-w-[140px]`}>
                             {user?.email}
                           </p>

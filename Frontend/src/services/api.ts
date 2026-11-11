@@ -1,38 +1,73 @@
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
+import {
+  Usuario,
+  Cliente,
+  Proyecto,
+  Tarea,
+  Asistencia,
+  Capacitacion,
+  UsuarioApi,
+  ClienteApi,
+  ProyectoApi,
+  TareaApi,
+  AsistenciaApi,
+  CapacitacionApi,
+  DashboardStats,
+  DashboardDataApi,
+  CapacitacionProximaApi,
+  LoginResponse,
+} from '../types';
+import {
+  mapUsuario,
+  mapUsuarios,
+  mapCliente,
+  mapClientes,
+  mapProyecto,
+  mapProyectos,
+  mapTarea,
+  mapTareas,
+  mapAsistencia,
+  mapAsistencias,
+  mapCapacitacion,
+  mapCapacitaciones,
+  mapDashboardStats,
+  mapClienteRequest,
+  mapProyectoRequest,
+  mapTareaRequest,
+  mapCapacitacionRequest,
+} from './adapters';
 
-// Configuración base de Axios
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3000/api',
-  timeout: 10000,
+  baseURL: import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api',
+  timeout: 15000,
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Interceptor para agregar token de autenticación
 api.interceptors.request.use(
   (config) => {
-    const user = localStorage.getItem('currentUser');
-    if (user) {
-      const parsedUser = JSON.parse(user);
-      // Aquí se agregaría el token cuando se implemente backend
-      // config.headers.Authorization = `Bearer ${parsedUser.token}`;
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
-// Interceptor para manejar respuestas
 api.interceptors.response.use(
   (response) => {
+    const { data } = response;
+    if (data && typeof data === 'object' && 'success' in data) {
+      return { ...response, data: data.data ?? data };
+    }
     return response;
   },
-  (error) => {
-    if (error.response?.status === 401) {
-      // Manejar error de autenticación
+  (error: AxiosError) => {
+    const isLoginRequest = error.config?.url?.includes('/auth/login');
+    if (error.response?.status === 401 && !isLoginRequest) {
+      localStorage.removeItem('token');
       localStorage.removeItem('currentUser');
       window.location.href = '/login';
     }
@@ -40,103 +75,227 @@ api.interceptors.response.use(
   }
 );
 
-// Servicios de API (preparados para cuando exista backend)
-
-// Autenticación
 export const authService = {
-  login: async (email: string, password: string) => {
-    // Por ahora no hace llamada real, se maneja en AuthContext
-    // return api.post('/auth/login', { email, password });
-    return Promise.resolve({ data: { success: true } });
+  login: async (email: string, password: string): Promise<LoginResponse> => {
+    const response = await api.post<{ token: string; user: UsuarioApi }>('/auth/login', { email, password });
+    const { token, user } = response.data;
+    return { token, user: mapUsuario(user) };
   },
-  register: async (userData: any) => {
-    // return api.post('/auth/register', userData);
-    return Promise.resolve({ data: { success: true } });
+  register: async (userData: Record<string, unknown>): Promise<unknown> => {
+    const response = await api.post('/auth/register', userData);
+    return response.data;
   },
-  logout: async () => {
-    // return api.post('/auth/logout');
-    return Promise.resolve({ data: { success: true } });
+  logout: async (): Promise<void> => {
+    await api.post('/auth/logout');
+    localStorage.removeItem('token');
+    localStorage.removeItem('currentUser');
+  },
+  getMe: async (): Promise<Usuario> => {
+    const response = await api.get<UsuarioApi>('/auth/me');
+    return mapUsuario(response.data);
+  },
+  updateUser: async (userData: Partial<Usuario>): Promise<Usuario> => {
+    const response = await api.put<UsuarioApi>('/profile', userData);
+    return mapUsuario(response.data);
   },
 };
 
-// Usuarios
 export const usuariosService = {
-  getAll: async () => {
-    // return api.get('/usuarios');
-    return Promise.resolve({ data: [] });
+  getAll: async (): Promise<Usuario[]> => {
+    const response = await api.get<UsuarioApi[]>('/usuarios');
+    return mapUsuarios(response.data);
   },
-  getById: async (id: string) => {
-    // return api.get(`/usuarios/${id}`);
-    return Promise.resolve({ data: {} });
+  getById: async (id: string): Promise<Usuario> => {
+    const response = await api.get<UsuarioApi>(`/usuarios/${id}`);
+    return mapUsuario(response.data);
   },
-  create: async (userData: any) => {
-    // return api.post('/usuarios', userData);
-    return Promise.resolve({ data: { success: true } });
+  create: async (userData: Record<string, unknown>): Promise<Usuario> => {
+    const response = await api.post<UsuarioApi>('/usuarios', userData);
+    return mapUsuario(response.data);
   },
-  update: async (id: string, userData: any) => {
-    // return api.put(`/usuarios/${id}`, userData);
-    return Promise.resolve({ data: { success: true } });
+  update: async (id: string, userData: Record<string, unknown>): Promise<Usuario> => {
+    const response = await api.put<UsuarioApi>(`/usuarios/${id}`, userData);
+    return mapUsuario(response.data);
   },
-  delete: async (id: string) => {
-    // return api.delete(`/usuarios/${id}`);
-    return Promise.resolve({ data: { success: true } });
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/usuarios/${id}`);
   },
 };
 
-// Clientes
+export const trabajadoresService = {
+  getAll: async (): Promise<Usuario[]> => {
+    const response = await api.get<UsuarioApi[]>('/usuarios');
+    return mapUsuarios(response.data).filter((u) => u.rol === 'Trabajador');
+  },
+  getById: async (id: string): Promise<Usuario> => {
+    const response = await api.get<UsuarioApi>(`/usuarios/${id}`);
+    return mapUsuario(response.data);
+  },
+};
+
 export const clientesService = {
-  getAll: async () => {
-    return Promise.resolve({ data: [] });
+  getAll: async (): Promise<Cliente[]> => {
+    const response = await api.get<ClienteApi[]>('/clientes');
+    return mapClientes(response.data);
   },
-  getById: async (id: string) => {
-    return Promise.resolve({ data: {} });
+  getById: async (id: string): Promise<Cliente> => {
+    const response = await api.get<ClienteApi>(`/clientes/${id}`);
+    return mapCliente(response.data);
   },
-  create: async (clienteData: any) => {
-    return Promise.resolve({ data: { success: true } });
+  create: async (clienteData: Partial<Cliente>): Promise<Cliente> => {
+    const apiData = mapClienteRequest(clienteData);
+    const response = await api.post<ClienteApi>('/clientes', apiData);
+    return mapCliente(response.data);
   },
-  update: async (id: string, clienteData: any) => {
-    return Promise.resolve({ data: { success: true } });
+  update: async (id: string, clienteData: Partial<Cliente>): Promise<Cliente> => {
+    const apiData = mapClienteRequest(clienteData);
+    const response = await api.put<ClienteApi>(`/clientes/${id}`, apiData);
+    return mapCliente(response.data);
   },
-  delete: async (id: string) => {
-    return Promise.resolve({ data: { success: true } });
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/clientes/${id}`);
   },
 };
 
-// Proyectos
 export const proyectosService = {
-  getAll: async () => {
-    return Promise.resolve({ data: [] });
+  getAll: async (): Promise<Proyecto[]> => {
+    const response = await api.get<ProyectoApi[]>('/proyectos');
+    return mapProyectos(response.data);
   },
-  getById: async (id: string) => {
-    return Promise.resolve({ data: {} });
+  getById: async (id: string): Promise<Proyecto> => {
+    const response = await api.get<ProyectoApi>(`/proyectos/${id}`);
+    return mapProyecto(response.data);
   },
-  create: async (proyectoData: any) => {
-    return Promise.resolve({ data: { success: true } });
+  create: async (proyectoData: Partial<Proyecto>): Promise<Proyecto> => {
+    const apiData = mapProyectoRequest(proyectoData);
+    const response = await api.post<ProyectoApi>('/proyectos', apiData);
+    return mapProyecto(response.data);
   },
-  update: async (id: string, proyectoData: any) => {
-    return Promise.resolve({ data: { success: true } });
+  update: async (id: string, proyectoData: Partial<Proyecto>): Promise<Proyecto> => {
+    const apiData = mapProyectoRequest(proyectoData);
+    const response = await api.put<ProyectoApi>(`/proyectos/${id}`, apiData);
+    return mapProyecto(response.data);
   },
-  delete: async (id: string) => {
-    return Promise.resolve({ data: { success: true } });
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/proyectos/${id}`);
   },
 };
 
-// Tareas
 export const tareasService = {
-  getAll: async () => {
-    return Promise.resolve({ data: [] });
+  getAll: async (): Promise<Tarea[]> => {
+    const response = await api.get<TareaApi[]>('/tareas');
+    return mapTareas(response.data);
   },
-  getById: async (id: string) => {
-    return Promise.resolve({ data: {} });
+  getById: async (id: string): Promise<Tarea> => {
+    const response = await api.get<TareaApi>(`/tareas/${id}`);
+    return mapTarea(response.data);
   },
-  create: async (tareaData: any) => {
-    return Promise.resolve({ data: { success: true } });
+  create: async (tareaData: Partial<Tarea>): Promise<Tarea> => {
+    const apiData = mapTareaRequest(tareaData);
+    const response = await api.post<TareaApi>('/tareas', apiData);
+    return mapTarea(response.data);
   },
-  update: async (id: string, tareaData: any) => {
-    return Promise.resolve({ data: { success: true } });
+  update: async (id: string, tareaData: Partial<Tarea>): Promise<Tarea> => {
+    const apiData = mapTareaRequest(tareaData);
+    const response = await api.put<TareaApi>(`/tareas/${id}`, apiData);
+    return mapTarea(response.data);
   },
-  delete: async (id: string) => {
-    return Promise.resolve({ data: { success: true } });
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/tareas/${id}`);
+  },
+};
+
+export const asistenciasService = {
+  getAll: async (): Promise<Asistencia[]> => {
+    const response = await api.get<AsistenciaApi[]>('/asistencias');
+    return mapAsistencias(response.data);
+  },
+  marcarEntrada: async (): Promise<unknown> => {
+    const response = await api.post('/asistencias/entrada');
+    return response.data;
+  },
+  marcarSalida: async (): Promise<unknown> => {
+    const response = await api.post('/asistencias/salida');
+    return response.data;
+  },
+};
+
+export const capacitacionesService = {
+  getAll: async (): Promise<Capacitacion[]> => {
+    const response = await api.get<CapacitacionApi[]>('/capacitaciones');
+    return mapCapacitaciones(response.data);
+  },
+  getById: async (id: string): Promise<Capacitacion> => {
+    const response = await api.get<CapacitacionApi>(`/capacitaciones/${id}`);
+    return mapCapacitacion(response.data);
+  },
+  create: async (capacitacionData: Partial<Capacitacion>): Promise<Capacitacion> => {
+    const apiData = mapCapacitacionRequest(capacitacionData);
+    const response = await api.post<CapacitacionApi>('/capacitaciones', apiData);
+    return mapCapacitacion(response.data);
+  },
+  update: async (id: string, capacitacionData: Partial<Capacitacion>): Promise<Capacitacion> => {
+    const apiData = mapCapacitacionRequest(capacitacionData);
+    const response = await api.put<CapacitacionApi>(`/capacitaciones/${id}`, apiData);
+    return mapCapacitacion(response.data);
+  },
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/capacitaciones/${id}`);
+  },
+};
+
+export const dashboardService = {
+  getStats: async (): Promise<DashboardStats> => {
+    const response = await api.get<DashboardDataApi>('/dashboard');
+    const data = response.data;
+
+    if (!data?.resumen || !data?.graficos) {
+      return {
+        proyectosTotales: 0,
+        proyectosActivos: 0,
+        tareasPendientes: 0,
+        tareasCompletadas: 0,
+        clientesTotal: 0,
+        trabajadoresTotal: 0,
+        asistenciasHoy: 0,
+        capacitacionesTotal: 0,
+        proyectosPorEstado: [],
+        tareasPorMes: [],
+        proyectosRecientes: [],
+        actividadReciente: [],
+        misProyectos: [],
+        misTareas: [],
+        misTareasPendientes: 0,
+        misTareasCompletadas: 0,
+        capacitacionesProximas: [],
+      };
+    }
+
+    let misProyectos: Proyecto[] = [];
+    let misTareas: Tarea[] = [];
+    let capacitacionesTotal = 0;
+
+    try {
+      const [proyectosRes, tareasRes, capacitacionesRes] = await Promise.all([
+        api.get<ProyectoApi[]>('/proyectos'),
+        api.get<TareaApi[]>('/tareas'),
+        api.get<CapacitacionApi[]>('/capacitaciones'),
+      ]);
+      misProyectos = proyectosRes.data.map(mapProyecto);
+      misTareas = tareasRes.data.map(mapTarea);
+      capacitacionesTotal = capacitacionesRes.data.length;
+    } catch {
+      // Silently fail if user can't access related endpoints
+    }
+
+    return mapDashboardStats(
+      data.resumen,
+      data.graficos,
+      data.proximas_capacitaciones || [],
+      misProyectos,
+      misTareas,
+      capacitacionesTotal
+    );
   },
 };
 

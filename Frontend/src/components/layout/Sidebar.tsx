@@ -15,6 +15,7 @@ import {
   Settings,
   LogOut,
   X,
+  MessageSquare,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import Avatar from '../ui/Avatar';
@@ -138,17 +139,18 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const location = useLocation();
 
   const menuItems: MenuItem[] = [
-    { path: '/dashboard',     label: 'Dashboard',      icon: <LayoutDashboard className="w-5 h-5" />, roles: ['Administrador', 'Trabajador', 'Usuario'] },
-    { path: '/clientes',      label: 'Clientes',        icon: <Users className="w-5 h-5" />,           roles: ['Administrador'] },
-    { path: '/proyectos',     label: 'Proyectos',       icon: <Briefcase className="w-5 h-5" />,       roles: ['Administrador', 'Trabajador', 'Usuario'] },
-    { path: '/tareas',        label: 'Tareas',          icon: <CheckSquare className="w-5 h-5" />,     roles: ['Administrador', 'Trabajador', 'Usuario'] },
-    { path: '/usuarios',      label: 'Usuarios',        icon: <UserCog className="w-5 h-5" />,         roles: ['Administrador'] },
-    { path: '/trabajadores',  label: 'Trabajadores',    icon: <Users className="w-5 h-5" />,           roles: ['Administrador'] },
-    { path: '/asistencias',   label: 'Asistencias',     icon: <Clock className="w-5 h-5" />,           roles: ['Administrador', 'Trabajador'] },
-    { path: '/capacitaciones',label: 'Capacitaciones',  icon: <BookOpen className="w-5 h-5" />,        roles: ['Administrador', 'Trabajador'] },
-    { path: '/recordatorios', label: 'Recordatorios',   icon: <Bell className="w-5 h-5" />,            roles: ['Administrador', 'Trabajador', 'Usuario'] },
-    { path: '/reportes',      label: 'Reportes',        icon: <BarChart3 className="w-5 h-5" />,       roles: ['Administrador'] },
-    { path: '/configuracion', label: 'Configuración',   icon: <Settings className="w-5 h-5" />,        roles: ['Administrador', 'Trabajador', 'Usuario'] },
+    { path: '/dashboard',      label: 'Dashboard',      icon: <LayoutDashboard className="w-5 h-5" />, roles: ['Administrador', 'Trabajador', 'Cliente'] },
+    { path: '/clientes',       label: 'Clientes',        icon: <Users className="w-5 h-5" />,           roles: ['Administrador'] },
+    { path: '/proyectos',      label: 'Proyectos',       icon: <Briefcase className="w-5 h-5" />,       roles: ['Administrador', 'Trabajador', 'Cliente'] },
+    { path: '/tareas',         label: 'Tareas',          icon: <CheckSquare className="w-5 h-5" />,     roles: ['Administrador', 'Trabajador', 'Cliente'] },
+    { path: '/usuarios',       label: 'Usuarios',        icon: <UserCog className="w-5 h-5" />,         roles: ['Administrador'] },
+    { path: '/trabajadores',   label: 'Trabajadores',    icon: <Users className="w-5 h-5" />,           roles: ['Administrador'] },
+    { path: '/asistencias',    label: 'Asistencias',     icon: <Clock className="w-5 h-5" />,           roles: ['Administrador', 'Trabajador'] },
+    { path: '/capacitaciones', label: 'Capacitaciones',  icon: <BookOpen className="w-5 h-5" />,        roles: ['Administrador', 'Trabajador'] },
+    { path: '/recordatorios',  label: 'Recordatorios',   icon: <Bell className="w-5 h-5" />,            roles: ['Administrador', 'Trabajador', 'Cliente'] },
+    { path: '/mensajeria',     label: 'Mensajería',      icon: <MessageSquare className="w-5 h-5" />,   roles: ['Administrador', 'Trabajador', 'Cliente'] },
+    { path: '/reportes',       label: 'Reportes',        icon: <BarChart3 className="w-5 h-5" />,       roles: ['Administrador'] },
+    { path: '/configuracion',  label: 'Configuración',   icon: <Settings className="w-5 h-5" />,        roles: ['Administrador', 'Trabajador', 'Cliente'] },
   ];
 
   const filteredMenuItems = menuItems.filter((item) =>

@@ -1,7 +1,10 @@
 # Dependencias
 node_modules/
+vendor/
 .pnp
 .pnp.js
+__pycache__/
+*.pyc
 
 # Build
 dist/

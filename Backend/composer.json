@@ -1,0 +1,31 @@
+{
+  "name": "codaini/sistema-empresarial-backend",
+  "description": "API RESTful en PHP para el Sistema Empresarial CODAINI",
+  "type": "project",
+  "license": "proprietary",
+  "authors": [
+    {
+      "name": "CODAINI Team",
+      "email": "contacto@codaini.com"
+    }
+  ],
+  "require": {
+    "php": ">=7.4 || ^8.0 || ^8.1 || ^8.2 || ^8.3",
+    "firebase/php-jwt": "^6.8",
+    "vlucas/phpdotenv": "^5.5"
+  },
+  "autoload": {
+    "classmap": [
+      "config/",
+      "controllers/",
+      "middleware/",
+      "models/",
+      "routes/",
+      "utils/"
+    ]
+  },
+  "config": {
+    "optimize-autoloader": true,
+    "sort-packages": true
+  }
+}

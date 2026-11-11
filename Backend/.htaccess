@@ -1,0 +1,23 @@
+# =====================================================================
+# CODAINI - Configuración Apache para despliegue de API REST
+# =====================================================================
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /
+
+    # Permitir cabecera Authorization en PHP vía FastCGI / FPM
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+    # Redireccionar peticiones inexistentes al Front Controller index.php
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^(.*)$ index.php [QSA,L]
+</IfModule>
+
+# Seguridad: bloquear acceso a archivos sensibles
+<FilesMatch "^\.env|\.git|composer\.(json|lock)">
+    Order allow,deny
+    Deny from all
+</FilesMatch>

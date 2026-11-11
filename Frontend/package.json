@@ -10,12 +10,14 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "react-router-dom": "^6.22.3",
+    "@splinetool/react-spline": "^4.1.0",
+    "@splinetool/runtime": "^2.0.95",
     "axios": "^1.6.8",
     "framer-motion": "^11.0.28",
     "lucide-react": "^0.363.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.22.3",
     "recharts": "^2.12.3",
     "sweetalert2": "^11.10.8"
   },

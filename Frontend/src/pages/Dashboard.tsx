@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   Briefcase, CheckSquare, Users, UserCog, Clock, BookOpen, TrendingUp, Activity,
@@ -6,47 +6,57 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import StatCard from '../components/dashboard/StatCard';
-import {
-  mockProyectos, mockTareas, mockClientes, mockTrabajadores,
-  mockAsistencias, mockCapacitaciones,
-} from '../data/mockData';
+import { dashboardService } from '../services/api';
+import { DashboardStats } from '../types';
 import Badge from '../components/ui/Badge';
-import {
-  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, LineChart, Line, Legend,
-} from 'recharts';
+import Loading from '../components/ui/Loading';
 import { tc, getChartColors } from '../utils/themeClasses';
+
+const iconMap: Record<string, React.ElementType> = {
+  Briefcase, CheckSquare, UserCog, BookOpen, Users, Clock, TrendingUp, Activity,
+};
 
 const Dashboard: React.FC = () => {
   const { user } = useAuth();
   const { isDark } = useTheme();
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const chart = getChartColors(isDark);
 
-  const proyectosActivos  = mockProyectos.filter((p) => p.estado === 'En progreso').length;
-  const tareasPendientes  = mockTareas.filter((t) => t.estado === 'Pendiente').length;
-  const tareasCompletadas = mockTareas.filter((t) => t.estado === 'Completada').length;
-  const asistenciasHoy    = mockAsistencias.filter((a) => a.fecha === '2026-09-14').length;
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const data = await dashboardService.getStats();
+        setStats(data);
+      } catch {
+        setStats(null);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchStats();
+  }, []);
 
-  const proyectosPorEstado = [
-    { name: 'Pendiente',   value: mockProyectos.filter((p) => p.estado === 'Pendiente').length },
-    { name: 'En progreso', value: mockProyectos.filter((p) => p.estado === 'En progreso').length },
-    { name: 'Completado',  value: mockProyectos.filter((p) => p.estado === 'Completado').length },
-    { name: 'Cancelado',   value: mockProyectos.filter((p) => p.estado === 'Cancelado').length },
-  ];
+  if (isLoading) {
+    return <Loading text="Cargando dashboard..." fullPage />;
+  }
 
-  const tareasPorMes = [
-    { mes: 'Ene', tareas: 12 }, { mes: 'Feb', tareas: 15 }, { mes: 'Mar', tareas: 18 },
-    { mes: 'Abr', tareas: 22 }, { mes: 'May', tareas: 20 }, { mes: 'Jun', tareas: 25 },
-    { mes: 'Jul', tareas: 28 }, { mes: 'Ago', tareas: 30 }, { mes: 'Sep', tareas: 26 },
-  ];
+  if (!stats) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 text-center">
+        <p className={`text-lg ${tc.textMuted}`}>No se pudieron cargar las estadísticas.</p>
+      </div>
+    );
+  }
 
-  // Componente de tooltip personalizado para Recharts
-  const CustomTooltip = ({ active, payload, label }: any) => {
+  const proyectosCompletados = stats.proyectosPorEstado.find((p) => p.name === 'Completado')?.value ?? 0;
+
+  const CustomTooltip: React.FC<{ active?: boolean; payload?: Array<{ color?: string; name?: string; value?: number | string }>; label?: string }> = ({ active, payload, label }) => {
     if (active && payload?.length) {
       return (
         <div className={`${tc.card} p-3 text-sm`}>
           <p className={`font-semibold ${tc.textPrimary} mb-1`}>{label}</p>
-          {payload.map((p: any, i: number) => (
+          {payload.map((p, i: number) => (
             <p key={i} style={{ color: p.color }}>{p.name}: {p.value}</p>
           ))}
         </div>
@@ -68,18 +78,18 @@ const Dashboard: React.FC = () => {
 
         {/* Stats row 1 */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard title="Total Proyectos"     value={mockProyectos.length}  icon={Briefcase}   color="primary"  trend={{ value: 12, isPositive: true }} />
-          <StatCard title="Proyectos Activos"   value={proyectosActivos}       icon={Activity}    color="success"  />
-          <StatCard title="Tareas Pendientes"   value={tareasPendientes}        icon={CheckSquare} color="warning"  />
-          <StatCard title="Tareas Completadas"  value={tareasCompletadas}       icon={CheckSquare} color="success"  />
+          <StatCard title="Total Proyectos"     value={stats.proyectosTotales}     icon={Briefcase}   color="primary"  trend={{ value: 12, isPositive: true }} />
+          <StatCard title="Proyectos Activos"   value={stats.proyectosActivos}     icon={Activity}    color="success"  />
+          <StatCard title="Tareas Pendientes"   value={stats.tareasPendientes}     icon={CheckSquare} color="warning"  />
+          <StatCard title="Tareas Completadas"  value={stats.tareasCompletadas}    icon={CheckSquare} color="success"  />
         </div>
 
         {/* Stats row 2 */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard title="Clientes"       value={mockClientes.length}    icon={Users}    color="info"    />
-          <StatCard title="Trabajadores"   value={mockTrabajadores.length} icon={UserCog}  color="primary" />
-          <StatCard title="Asistencias Hoy" value={asistenciasHoy}         icon={Clock}    color="success" />
-          <StatCard title="Capacitaciones"  value={mockCapacitaciones.length} icon={BookOpen} color="info"  />
+          <StatCard title="Clientes"       value={stats.clientesTotal}      icon={Users}    color="info"    />
+          <StatCard title="Trabajadores"   value={stats.trabajadoresTotal}  icon={UserCog}  color="primary" />
+          <StatCard title="Asistencias Hoy" value={stats.asistenciasHoy}    icon={Clock}    color="success" />
+          <StatCard title="Capacitaciones"  value={stats.capacitacionesTotal} icon={BookOpen} color="info"  />
         </div>
 
         {/* Gráficos */}
@@ -88,34 +98,31 @@ const Dashboard: React.FC = () => {
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
             className={`${tc.cardShadow} p-6`}>
             <h3 className={`text-lg font-bold ${tc.textHeading} mb-4`}>Proyectos por Estado</h3>
-            <ResponsiveContainer width="100%" height={280}>
-              <PieChart>
-                <Pie data={proyectosPorEstado} cx="50%" cy="50%" labelLine={false}
-                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                  outerRadius={100} dataKey="value">
-                  {proyectosPorEstado.map((_, index) => (
-                    <Cell key={`cell-${index}`} fill={chart.palette[index % chart.palette.length]} />
-                  ))}
-                </Pie>
-                <Tooltip content={<CustomTooltip />} />
-              </PieChart>
-            </ResponsiveContainer>
+            <div>
+              {stats.proyectosPorEstado.map((_, index) => (
+                <div key={index} className="flex items-center gap-2 mb-1">
+                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: chart.palette[index % chart.palette.length] }} />
+                  <span className={`text-sm ${tc.textMuted}`}>{stats.proyectosPorEstado[index].name}: {stats.proyectosPorEstado[index].value}</span>
+                </div>
+              ))}
+            </div>
           </motion.div>
 
           {/* Line chart */}
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
             className={`${tc.cardShadow} p-6`}>
             <h3 className={`text-lg font-bold ${tc.textHeading} mb-4`}>Tareas por Mes</h3>
-            <ResponsiveContainer width="100%" height={280}>
-              <LineChart data={tareasPorMes}>
-                <CartesianGrid strokeDasharray="3 3" stroke={chart.grid} />
-                <XAxis dataKey="mes" tick={{ fill: chart.axis }} axisLine={{ stroke: chart.grid }} />
-                <YAxis tick={{ fill: chart.axis }} axisLine={{ stroke: chart.grid }} />
-                <Tooltip content={<CustomTooltip />} />
-                <Legend wrapperStyle={{ color: chart.axis }} />
-                <Line type="monotone" dataKey="tareas" stroke={chart.primary} strokeWidth={3} name="Tareas" dot={{ fill: chart.primary }} />
-              </LineChart>
-            </ResponsiveContainer>
+            <div>
+              {stats.tareasPorMes.map((m) => (
+                <div key={m.mes} className="flex items-center gap-2 mb-1">
+                  <span className={`text-sm ${tc.textMuted} w-8`}>{m.mes}</span>
+                  <div className="flex-1 bg-light-surface-2 dark:bg-codaini-navy rounded-full h-1.5">
+                    <div className="bg-light-accent dark:bg-codaini-cyan h-1.5 rounded-full" style={{ width: `${Math.min((m.tareas / 30) * 100, 100)}%` }} />
+                  </div>
+                  <span className={`text-xs ${tc.textMuted} w-8 text-right`}>{m.tareas}</span>
+                </div>
+              ))}
+            </div>
           </motion.div>
         </div>
 
@@ -133,7 +140,7 @@ const Dashboard: React.FC = () => {
                 </tr>
               </thead>
               <tbody className={`divide-y ${tc.divider}`}>
-                {mockProyectos.slice(0, 5).map((proyecto) => (
+                {stats.proyectosRecientes.slice(0, 5).map((proyecto) => (
                   <tr key={proyecto.id} className={tc.tableRow}>
                     <td className={`px-4 py-3 text-sm font-medium ${tc.textPrimary}`}>{proyecto.nombre}</td>
                     <td className={tc.tableCellMuted}>{proyecto.cliente}</td>
@@ -146,7 +153,7 @@ const Dashboard: React.FC = () => {
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <div className="w-20 bg-light-surface-2 dark:bg-codaini-navy rounded-full h-1.5">
-                          <div className="bg-codaini-cyan dark:bg-codaini-cyan h-1.5 rounded-full bg-light-accent transition-all" style={{ width: `${proyecto.progreso}%` }} />
+                          <div className="bg-light-accent dark:bg-codaini-cyan h-1.5 rounded-full transition-all" style={{ width: `${proyecto.progreso}%` }} />
                         </div>
                         <span className={`text-xs ${tc.textMuted}`}>{proyecto.progreso}%</span>
                       </div>
@@ -164,22 +171,20 @@ const Dashboard: React.FC = () => {
           className={`${tc.cardShadow} p-6`}>
           <h3 className={`text-lg font-bold ${tc.textHeading} mb-4`}>Actividad Reciente</h3>
           <div className="space-y-2">
-            {[
-              { icon: Briefcase,  color: 'text-green-500',  bg: 'bg-green-500/10',  title: 'Nuevo proyecto registrado',     sub: 'Portal Web Corporativo — Hace 2 horas' },
-              { icon: CheckSquare,color: 'text-blue-500',   bg: 'bg-blue-500/10',   title: 'Tarea completada',               sub: 'Testing de la plataforma — Hace 5 horas' },
-              { icon: UserCog,    color: 'text-purple-500', bg: 'bg-purple-500/10', title: 'Nuevo trabajador registrado',    sub: 'Luis Fernández — Hace 1 día' },
-              { icon: BookOpen,   color: 'text-yellow-500', bg: 'bg-yellow-500/10', title: 'Nueva capacitación programada',  sub: 'Desarrollo en React — 20 de septiembre' },
-            ].map((item, i) => (
-              <div key={i} className={`flex items-start space-x-3 p-3 rounded-lg ${tc.hoverCard} transition-colors cursor-default`}>
-                <div className={`p-2 rounded-lg flex-shrink-0 ${item.bg}`}>
-                  <item.icon className={`w-4 h-4 ${item.color}`} />
+            {stats.actividadReciente.map((item, i) => {
+              const IconComponent = iconMap[item.icon] || Activity;
+              return (
+                <div key={i} className={`flex items-start space-x-3 p-3 rounded-lg ${tc.hoverCard} transition-colors cursor-default`}>
+                  <div className={`p-2 rounded-lg flex-shrink-0 ${item.bg}`}>
+                    <IconComponent className={`w-4 h-4 ${item.color}`} />
+                  </div>
+                  <div>
+                    <p className={`text-sm font-medium ${tc.textPrimary}`}>{item.title}</p>
+                    <p className={`text-xs mt-0.5 ${tc.textMuted}`}>{item.sub}</p>
+                  </div>
                 </div>
-                <div>
-                  <p className={`text-sm font-medium ${tc.textPrimary}`}>{item.title}</p>
-                  <p className={`text-xs mt-0.5 ${tc.textMuted}`}>{item.sub}</p>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </motion.div>
       </div>
@@ -188,10 +193,7 @@ const Dashboard: React.FC = () => {
 
   // ── Dashboard Trabajador ──────────────────────────────────────────────────
   if (user?.rol === 'Trabajador') {
-    const misProyectos       = mockProyectos.filter((p) => p.responsableId === user.id);
-    const misTareas          = mockTareas.filter((t) => t.responsableId === user.id);
-    const misTareasPendientes = misTareas.filter((t) => t.estado === 'Pendiente');
-    const misTareasCompletadas = misTareas.filter((t) => t.estado === 'Completada');
+    const misTareasPendientes = stats.misTareas.filter((t) => t.estado === 'Pendiente');
 
     return (
       <div className="space-y-6">
@@ -201,10 +203,10 @@ const Dashboard: React.FC = () => {
         </motion.div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard title="Mis Proyectos"      value={misProyectos.length}        icon={Briefcase}   color="primary" />
-          <StatCard title="Mis Tareas"          value={misTareas.length}            icon={CheckSquare} color="info"    />
-          <StatCard title="Tareas Pendientes"   value={misTareasPendientes.length}  icon={Activity}    color="warning" />
-          <StatCard title="Tareas Completadas"  value={misTareasCompletadas.length} icon={TrendingUp}  color="success" />
+          <StatCard title="Mis Proyectos"      value={stats.misProyectos.length}        icon={Briefcase}   color="primary" />
+          <StatCard title="Mis Tareas"          value={stats.misTareas.length}            icon={CheckSquare} color="info"    />
+          <StatCard title="Tareas Pendientes"   value={misTareasPendientes.length}        icon={Activity}    color="warning" />
+          <StatCard title="Tareas Completadas"  value={stats.misTareasCompletadas}       icon={TrendingUp}  color="success" />
         </div>
 
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
@@ -244,16 +246,16 @@ const Dashboard: React.FC = () => {
       </motion.div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <StatCard title="Proyectos"   value={mockProyectos.length}                                               icon={Briefcase}   color="primary" />
-        <StatCard title="En Progreso" value={proyectosActivos}                                                   icon={Activity}    color="info"    />
-        <StatCard title="Completados" value={mockProyectos.filter((p) => p.estado === 'Completado').length}      icon={CheckSquare} color="success" />
+        <StatCard title="Proyectos"   value={stats.proyectosTotales}                                               icon={Briefcase}   color="primary" />
+        <StatCard title="En Progreso" value={stats.proyectosActivos}                                               icon={Activity}    color="info"    />
+        <StatCard title="Completados" value={proyectosCompletados}                                                  icon={CheckSquare} color="success" />
       </div>
 
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
         className={`${tc.cardShadow} p-6`}>
         <h3 className={`text-lg font-bold ${tc.textHeading} mb-4`}>Mis Proyectos</h3>
         <div className="space-y-4">
-          {mockProyectos.slice(0, 3).map((proyecto) => (
+          {stats.misProyectos.slice(0, 3).map((proyecto) => (
             <div key={proyecto.id} className={`p-4 border ${tc.border} rounded-lg`}>
               <div className="flex items-start justify-between gap-3 mb-3">
                 <h4 className={`font-semibold ${tc.textPrimary}`}>{proyecto.nombre}</h4>

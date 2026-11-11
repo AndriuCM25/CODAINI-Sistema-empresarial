@@ -4,13 +4,14 @@
  */
 
 export interface SwalBaseConfig {
+  background: string;
+  color: string;
   customClass: {
+    container: string;
     popup: string;
     confirmButton: string;
     cancelButton: string;
   };
-  background?: string;
-  color?: string;
   confirmButtonColor: string;
   cancelButtonColor: string;
 }
@@ -21,20 +22,26 @@ export interface SwalBaseConfig {
 export function getSwalConfig(isDark: boolean): SwalBaseConfig {
   if (isDark) {
     return {
+      background: '#112240',
+      color: '#CCD6F6',
       customClass: {
+        container: 'swal2-dark',
         popup: 'swal2-dark',
-        confirmButton: '',
-        cancelButton: '',
+        confirmButton: 'px-4 py-2 rounded-lg font-semibold',
+        cancelButton: 'px-4 py-2 rounded-lg font-semibold',
       },
       confirmButtonColor: '#64FFDA',
       cancelButtonColor: '#233554',
     };
   }
   return {
+    background: '#FFFFFF',
+    color: '#0A192F',
     customClass: {
+      container: 'swal2-light',
       popup: 'swal2-light',
-      confirmButton: '',
-      cancelButton: '',
+      confirmButton: 'px-4 py-2 rounded-lg font-semibold',
+      cancelButton: 'px-4 py-2 rounded-lg font-semibold',
     },
     confirmButtonColor: '#0F766E',
     cancelButtonColor: '#CBD5E1',

@@ -62,7 +62,7 @@ export const mockUsuarios: Usuario[] = [
     email: 'ana@empresa.com',
     password: '123456',
     telefono: '+51 987 654 324',
-    rol: 'Usuario',
+    rol: 'Cliente',
     iniciales: 'AM',
     estado: 'Activo',
     fechaRegistro: '2024-04-05',

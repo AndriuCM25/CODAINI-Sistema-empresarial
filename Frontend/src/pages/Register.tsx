@@ -20,7 +20,7 @@ const Register: React.FC = () => {
     cargo: '',
     area: '',
     empresa: '',
-    rol: '' as 'Trabajador' | 'Usuario' | '',
+    rol: '' as 'Trabajador' | 'Cliente' | '',
   });
 
   const [showPassword, setShowPassword] = useState(false);
@@ -35,7 +35,7 @@ const Register: React.FC = () => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleRolChange = (rol: 'Trabajador' | 'Usuario') => {
+  const handleRolChange = (rol: 'Trabajador' | 'Cliente') => {
     setFormData({ ...formData, rol, cargo: '', area: '', empresa: '' });
   };
 
@@ -54,7 +54,7 @@ const Register: React.FC = () => {
       Swal.fire({ ...swalCfg, icon: 'warning', title: 'Campos incompletos', text: 'Los trabajadores deben completar Cargo y Área' });
       return false;
     }
-    if (formData.rol === 'Usuario' && !formData.empresa) {
+      if (formData.rol === 'Cliente' && !formData.empresa) {
       Swal.fire({ ...swalCfg, icon: 'warning', title: 'Campos incompletos', text: 'Los usuarios/clientes deben completar el nombre de su empresa' });
       return false;
     }
@@ -79,7 +79,7 @@ const Register: React.FC = () => {
     if (!validateForm()) return;
     setIsLoading(true);
     try {
-      const success = await register(formData as any);
+      const success = await register({ ...formData, rol: formData.rol as 'Trabajador' | 'Cliente' });
       if (success) {
         await Swal.fire({ ...getSwalConfig(isDark), icon: 'success', title: '¡Registro exitoso!', text: 'Tu cuenta ha sido creada correctamente' });
         navigate('/login');
@@ -141,7 +141,7 @@ const Register: React.FC = () => {
           <div className="mb-6">
             <label className={tc.inputLabel}>¿Quieres registrarte como?</label>
             <div className="grid grid-cols-2 gap-4 mt-2">
-              {(['Trabajador', 'Usuario'] as const).map((rol) => (
+              {(['Trabajador', 'Cliente'] as const).map((rol) => (
                 <button key={rol} type="button" onClick={() => handleRolChange(rol)}
                   className={`p-4 border-2 rounded-xl text-sm font-semibold transition-all duration-200 flex flex-col items-center gap-2 ${ 
                     formData.rol === rol
@@ -149,12 +149,12 @@ const Register: React.FC = () => {
                       : `${tc.border} ${tc.textMuted} hover:border-light-accent dark:hover:border-codaini-cyan ${tc.hoverSurface}`
                   }`}>
                   <span className="text-2xl">
-                    {rol === 'Trabajador'
-                      ? <HardHat className="w-6 h-6" />
-                      : <Building2 className="w-6 h-6" />
-                    }
+                     {rol === 'Trabajador'
+                       ? <HardHat className="w-6 h-6" />
+                       : <Building2 className="w-6 h-6" />
+                     }
                   </span>
-                  {rol === 'Trabajador' ? 'Trabajador' : 'Usuario / Cliente'}
+                  {rol === 'Cliente' ? 'Cliente' : 'Trabajador'}
                 </button>
               ))}
             </div>
@@ -211,7 +211,7 @@ const Register: React.FC = () => {
                   </div>
                 </div>
               )}
-              {formData.rol === 'Usuario' && (
+              {formData.rol === 'Cliente' && (
                 <div>
                   <label className={tc.inputLabel}>Empresa *</label>
                   <div className="relative">

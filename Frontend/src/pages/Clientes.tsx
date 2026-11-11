@@ -1,61 +1,104 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Plus, Edit, Trash2 } from 'lucide-react';
-import { mockClientes } from '../data/mockData';
 import { Cliente } from '../types';
+import { clientesService } from '../services/api';
 import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Button';
 import SearchBar from '../components/ui/SearchBar';
 import DataTable from '../components/tables/DataTable';
+import Loading from '../components/ui/Loading';
 import Swal from 'sweetalert2';
 import { useTheme } from '../context/ThemeContext';
 import { getSwalConfig, getSwalDeleteConfig } from '../utils/swalTheme';
 import { tc } from '../utils/themeClasses';
 
-const Clientes: React.FC = () => {
-  const [clientes, setClientes] = useState<Cliente[]>(mockClientes);
-  const [searchTerm, setSearchTerm] = useState('');
-  const { isDark } = useTheme();
+const inputSwal = (id: string, placeholder: string, type = 'text', value = '') =>
+  `<input id="${id}" class="swal2-input" type="${type}" placeholder="${placeholder}" value="${value}">`;
 
-  const filteredClientes = clientes.filter(
-    (c) =>
-      c.empresa.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.contacto.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.ruc.includes(searchTerm)
-  );
+const Clientes: React.FC = () => {
+  const { isDark } = useTheme();
+  const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [filtered, setFiltered] = useState<Cliente[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchClientes = async () => {
+      try {
+        const data = await clientesService.getAll();
+        setClientes(data);
+        setFiltered(data);
+      } catch {
+        setClientes([]);
+        setFiltered([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchClientes();
+  }, []);
+
+  useEffect(() => {
+    const filtered = clientes.filter(
+      (c) =>
+        c.empresa.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        c.contacto.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        c.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        c.ruc.includes(searchTerm)
+    );
+    setFiltered(filtered);
+  }, [searchTerm, clientes]);
+
+  const applySearch = (term: string) => {
+    setSearchTerm(term);
+  };
 
   const handleCreate = () => {
     Swal.fire({
       ...getSwalConfig(isDark),
       title: 'Crear Cliente',
       html: `
-        <input id="empresa" class="swal2-input" placeholder="Empresa">
-        <input id="ruc" class="swal2-input" placeholder="RUC">
-        <input id="contacto" class="swal2-input" placeholder="Contacto">
-        <input id="email" type="email" class="swal2-input" placeholder="Email">
-        <input id="telefono" class="swal2-input" placeholder="Teléfono">
+        ${inputSwal('empresa', 'Empresa')}
+        ${inputSwal('ruc', 'RUC')}
+        ${inputSwal('contacto', 'Contacto')}
+        ${inputSwal('email', 'Email', 'email')}
+        ${inputSwal('telefono', 'Teléfono')}
       `,
       confirmButtonText: 'Crear',
       showCancelButton: true,
       cancelButtonText: 'Cancelar',
       preConfirm: () => {
-        const empresa  = (document.getElementById('empresa')  as HTMLInputElement).value;
-        const ruc      = (document.getElementById('ruc')      as HTMLInputElement).value;
-        const contacto = (document.getElementById('contacto') as HTMLInputElement).value;
-        const email    = (document.getElementById('email')    as HTMLInputElement).value;
-        const telefono = (document.getElementById('telefono') as HTMLInputElement).value;
+        const empresa  = (document.getElementById('empresa')  as HTMLInputElement).value.trim();
+        const ruc      = (document.getElementById('ruc')      as HTMLInputElement).value.trim();
+        const contacto = (document.getElementById('contacto') as HTMLInputElement).value.trim();
+        const email    = (document.getElementById('email')    as HTMLInputElement).value.trim();
+        const telefono = (document.getElementById('telefono')  as HTMLInputElement).value.trim();
         if (!empresa || !ruc || !contacto || !email || !telefono) {
           Swal.showValidationMessage('Todos los campos son obligatorios');
           return null;
         }
         return { empresa, ruc, contacto, email, telefono };
       },
-    }).then((result) => {
+    }).then(async (result) => {
       if (result.isConfirmed && result.value) {
-        const nuevo: Cliente = { id: `${Date.now()}`, ...result.value, estado: 'Activo', fechaRegistro: new Date().toISOString().split('T')[0] };
-        setClientes([...clientes, nuevo]);
-        Swal.fire({ ...getSwalConfig(isDark), icon: 'success', title: '¡Creado!', text: 'Cliente creado exitosamente', timer: 2000, showConfirmButton: false });
+        try {
+          const nuevo = await clientesService.create(result.value);
+          const updated = [...clientes, nuevo];
+          setClientes(updated);
+          setFiltered(
+            updated.filter(
+              (c) =>
+                c.empresa.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                c.contacto.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                c.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                c.ruc.includes(searchTerm)
+            )
+          );
+          Swal.fire({ ...getSwalConfig(isDark), icon: 'success', title: '¡Creado!', text: 'Cliente creado exitosamente', timer: 2000, showConfirmButton: false });
+        } catch {
+          Swal.fire({ ...getSwalConfig(isDark), icon: 'error', title: 'Error', text: 'No se pudo crear el cliente' });
+        }
       }
     });
   };
@@ -65,31 +108,36 @@ const Clientes: React.FC = () => {
       ...getSwalConfig(isDark),
       title: 'Editar Cliente',
       html: `
-        <input id="empresa" class="swal2-input" value="${cliente.empresa}" placeholder="Empresa">
-        <input id="ruc" class="swal2-input" value="${cliente.ruc}" placeholder="RUC">
-        <input id="contacto" class="swal2-input" value="${cliente.contacto}" placeholder="Contacto">
-        <input id="email" type="email" class="swal2-input" value="${cliente.email}" placeholder="Email">
-        <input id="telefono" class="swal2-input" value="${cliente.telefono}" placeholder="Teléfono">
+        ${inputSwal('empresa', 'Empresa', 'text', cliente.empresa)}
+        ${inputSwal('ruc', 'RUC', 'text', cliente.ruc)}
+        ${inputSwal('contacto', 'Contacto', 'text', cliente.contacto)}
+        ${inputSwal('email', 'Email', 'email', cliente.email)}
+        ${inputSwal('telefono', 'Teléfono', 'text', cliente.telefono)}
       `,
       confirmButtonText: 'Guardar',
       showCancelButton: true,
       cancelButtonText: 'Cancelar',
       preConfirm: () => {
-        const empresa  = (document.getElementById('empresa')  as HTMLInputElement).value;
-        const ruc      = (document.getElementById('ruc')      as HTMLInputElement).value;
-        const contacto = (document.getElementById('contacto') as HTMLInputElement).value;
-        const email    = (document.getElementById('email')    as HTMLInputElement).value;
-        const telefono = (document.getElementById('telefono') as HTMLInputElement).value;
+        const empresa  = (document.getElementById('empresa')  as HTMLInputElement).value.trim();
+        const ruc      = (document.getElementById('ruc')      as HTMLInputElement).value.trim();
+        const contacto = (document.getElementById('contacto') as HTMLInputElement).value.trim();
+        const email    = (document.getElementById('email')    as HTMLInputElement).value.trim();
+        const telefono = (document.getElementById('telefono')  as HTMLInputElement).value.trim();
         if (!empresa || !ruc || !contacto || !email || !telefono) {
           Swal.showValidationMessage('Todos los campos son obligatorios');
           return null;
         }
         return { empresa, ruc, contacto, email, telefono };
       },
-    }).then((result) => {
+    }).then(async (result) => {
       if (result.isConfirmed && result.value) {
-        setClientes(clientes.map((c) => c.id === cliente.id ? { ...c, ...result.value } : c));
-        Swal.fire({ ...getSwalConfig(isDark), icon: 'success', title: '¡Actualizado!', text: 'Cliente actualizado', timer: 2000, showConfirmButton: false });
+        try {
+          const updated = await clientesService.update(cliente.id, result.value);
+          setClientes(clientes.map((c) => (c.id === cliente.id ? updated : c)));
+          Swal.fire({ ...getSwalConfig(isDark), icon: 'success', title: '¡Actualizado!', text: 'Cliente actualizado', timer: 2000, showConfirmButton: false });
+        } catch {
+          Swal.fire({ ...getSwalConfig(isDark), icon: 'error', title: 'Error', text: 'No se pudo actualizar el cliente' });
+        }
       }
     });
   };
@@ -99,10 +147,16 @@ const Clientes: React.FC = () => {
       ...getSwalDeleteConfig(isDark),
       title: '¿Estás seguro?',
       text: `¿Deseas eliminar al cliente ${cliente.empresa}?`,
-    }).then((result) => {
+    }).then(async (result) => {
       if (result.isConfirmed) {
-        setClientes(clientes.filter((c) => c.id !== cliente.id));
-        Swal.fire({ ...getSwalConfig(isDark), icon: 'success', title: '¡Eliminado!', text: 'El cliente ha sido eliminado', timer: 2000, showConfirmButton: false });
+        try {
+          await clientesService.delete(cliente.id);
+          const updated = clientes.filter((c) => c.id !== cliente.id);
+          setClientes(updated);
+          Swal.fire({ ...getSwalConfig(isDark), icon: 'success', title: '¡Eliminado!', text: 'El cliente ha sido eliminado', timer: 2000, showConfirmButton: false });
+        } catch {
+          Swal.fire({ ...getSwalConfig(isDark), icon: 'error', title: 'Error', text: 'No se pudo eliminar el cliente' });
+        }
       }
     });
   };
@@ -135,6 +189,10 @@ const Clientes: React.FC = () => {
     },
   ];
 
+  if (isLoading) {
+    return <Loading text="Cargando clientes..." fullPage />;
+  }
+
   return (
     <div className="space-y-6">
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between">
@@ -150,9 +208,9 @@ const Clientes: React.FC = () => {
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
         className={`${tc.cardShadow} p-6`}>
         <div className="mb-5">
-          <SearchBar value={searchTerm} onChange={setSearchTerm} placeholder="Buscar por empresa, contacto, email o RUC..." />
+          <SearchBar value={searchTerm} onChange={applySearch} placeholder="Buscar por empresa, contacto, email o RUC..." />
         </div>
-        <DataTable columns={columns} data={filteredClientes} />
+        <DataTable columns={columns} data={filtered} />
       </motion.div>
     </div>
   );

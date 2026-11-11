@@ -22,6 +22,7 @@ import Reportes from './pages/Reportes';
 import Perfil from './pages/Perfil';
 import Configuracion from './pages/Configuracion';
 import SobreCodaini from './pages/SobreCodaini';
+import Mensajeria from './pages/Mensajeria';
 
 const AppLayout: React.FC<{ children: React.ReactNode; title?: string }> = ({
   children,
@@ -47,8 +48,8 @@ const AppLayout: React.FC<{ children: React.ReactNode; title?: string }> = ({
 function App() {
   return (
     <ThemeProvider>
-      <AuthProvider>
-        <BrowserRouter>
+      <BrowserRouter>
+        <AuthProvider>
           <Routes>
             {/* Public routes */}
             <Route path="/login" element={<Login />} />
@@ -209,12 +210,23 @@ function App() {
               }
             />
 
+            <Route
+              path="/mensajeria"
+              element={
+                <ProtectedRoute>
+                  <AppLayout title="Mensajería">
+                    <Mensajeria />
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
+
             {/* Default redirect */}
             <Route path="/" element={<Navigate to="/login" replace />} />
-            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+            <Route path="*" element={<Navigate to="/login" replace />} />
           </Routes>
-        </BrowserRouter>
-      </AuthProvider>
+        </AuthProvider>
+      </BrowserRouter>
     </ThemeProvider>
   );
 }
