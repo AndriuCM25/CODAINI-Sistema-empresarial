@@ -65,7 +65,22 @@ export interface Proyecto {
   presupuesto?: number;
 }
 
-// Tarea
+// Sprint / Fase SCRUM
+export type EstadoSprint = 'Planificado' | 'Activo' | 'Completado';
+
+export interface Sprint {
+  id: string;
+  nombre: string;        // "Sprint 1", "Sprint 2", etc.
+  objetivo: string;      // Sprint goal
+  proyectoId: string;
+  proyecto: string;
+  fechaInicio: string;
+  fechaFin: string;
+  estado: EstadoSprint;
+  velocidad?: number;    // story points completados
+}
+
+// Tarea extendida con campos SCRUM
 export interface Tarea {
   id: string;
   titulo: string;
@@ -78,7 +93,28 @@ export interface Tarea {
   estado: EstadoTarea;
   fechaCreacion: string;
   fechaLimite: string;
+  // ── Campos SCRUM nuevos ──
+  sprintId?: string;
+  sprint?: string;
+  fase?: FaseTarea;
+  repositorio?: string;    // URL del repo (obligatorio)
+  feature?: string;        // rama / feature en la que trabaja (obligatorio)
+  storyPoints?: number;    // puntos de estimación
+  tipo?: TipoTarea;
+  etiquetas?: string[];
+  comentarios?: number;
 }
+
+// Fases dentro de un sprint (columnas Kanban)
+export type FaseTarea =
+  | 'Backlog'
+  | 'Por hacer'
+  | 'En progreso'
+  | 'En revisión'
+  | 'Hecho';
+
+// Tipo de tarea
+export type TipoTarea = 'Historia' | 'Bug' | 'Tarea' | 'Épica' | 'Subtarea';
 
 // Asistencia
 export interface Asistencia {

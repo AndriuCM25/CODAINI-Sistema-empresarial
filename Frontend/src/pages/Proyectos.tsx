@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Plus } from 'lucide-react';
+import { Plus, Eye, Users, TrendingUp, CheckCircle2, Clock } from 'lucide-react';
 import { Proyecto, EstadoProyecto, Cliente, Trabajador } from '../types';
 import { proyectosService, clientesService, trabajadoresService } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Button';
 import SearchBar from '../components/ui/SearchBar';
@@ -46,14 +47,32 @@ const defaultForm: ProyectoForm = {
 
 const Proyectos: React.FC = () => {
   const { isDark } = useTheme();
+  const { user } = useAuth();
+  const isAdmin = user?.rol === 'Administrador';
+
   const [proyectos, setProyectos] = useState<Proyecto[]>([]);
   const [clientesList, setClientesList] = useState<Cliente[]>([]);
   const [trabajadoresList, setTrabajadoresList] = useState<Trabajador[]>([]);
-  const [filtered, setFiltered] = useState<Proyecto[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [soloMisProyectos, setSoloMisProyectos] = useState(!isAdmin);
+  const [filtroEstado, setFiltroEstado] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState<ProyectoForm>(defaultForm);
+
+  // Filtrado inteligente
+  const filtered = useMemo(() => {
+    return proyectos.filter(p => {
+      const matchSearch =
+        p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        p.cliente.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchMios = !soloMisProyectos ||
+        p.responsableId === user?.id ||
+        p.responsable?.toLowerCase().includes((user?.nombre ?? '').toLowerCase());
+      const matchEstado = !filtroEstado || p.estado === filtroEstado;
+      return matchSearch && matchMios && matchEstado;
+    });
+  }, [proyectos, searchTerm, soloMisProyectos, filtroEstado, user]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -66,7 +85,6 @@ const Proyectos: React.FC = () => {
 
         if (proyectosData.status === 'fulfilled') {
           setProyectos(proyectosData.value);
-          setFiltered(proyectosData.value);
         }
         if (clientesData.status === 'fulfilled') {
           setClientesList(clientesData.value);
@@ -76,7 +94,6 @@ const Proyectos: React.FC = () => {
         }
       } catch {
         setProyectos([]);
-        setFiltered([]);
       } finally {
         setIsLoading(false);
       }
@@ -84,14 +101,7 @@ const Proyectos: React.FC = () => {
     fetchData();
   }, []);
 
-  useEffect(() => {
-    const filtered = proyectos.filter(
-      (p) =>
-        p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.cliente.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-    setFiltered(filtered);
-  }, [searchTerm, proyectos]);
+  // Eliminar el useEffect redundante de filtrado (ya usa useMemo)
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -158,25 +168,86 @@ const Proyectos: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between">
+      {/* Cabecera */}
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className={`text-3xl font-bold ${tc.textHeading}`}>Proyectos</h1>
-          <p className={`mt-1 ${tc.textMuted}`}>Gestión de proyectos</p>
+          <p className={`mt-1 ${tc.textMuted}`}>
+            {soloMisProyectos ? 'Mis proyectos asignados' : 'Todos los proyectos'}
+          </p>
         </div>
-        <Button variant="primary" icon={<Plus className="w-4 h-4" />} onClick={() => setModalOpen(true)}>
-          Nuevo Proyecto
-        </Button>
+        {isAdmin && (
+          <Button variant="primary" icon={<Plus className="w-4 h-4" />} onClick={() => setModalOpen(true)}>
+            Nuevo Proyecto
+          </Button>
+        )}
       </motion.div>
 
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-        className={`${tc.cardShadow} p-6`}>
-        <div className="mb-6">
-          <SearchBar value={searchTerm} onChange={setSearchTerm} placeholder="Buscar proyectos..." />
-        </div>
+      {/* Panel métricas rápidas */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
+        className="grid grid-cols-2 md:grid-cols-4 gap-3"
+      >
+        {[
+          { label: 'Total', value: filtered.length, icon: <TrendingUp className="w-4 h-4" />, color: 'text-light-accent dark:text-codaini-cyan', bg: 'border-light-accent/30 dark:border-codaini-cyan/30' },
+          { label: 'En progreso', value: filtered.filter(p => p.estado === 'En progreso').length, icon: <Clock className="w-4 h-4" />, color: 'text-blue-400', bg: 'border-blue-700/30' },
+          { label: 'Completados', value: filtered.filter(p => p.estado === 'Completado').length, icon: <CheckCircle2 className="w-4 h-4" />, color: 'text-emerald-400', bg: 'border-emerald-700/30' },
+          { label: 'Equipo', value: trabajadoresList.length, icon: <Users className="w-4 h-4" />, color: 'text-purple-400', bg: 'border-purple-700/30' },
+        ].map((m) => (
+          <div key={m.label} className={`${tc.cardShadow} p-4 border ${m.bg}`}>
+            <div className={`flex items-center gap-2 ${m.color} mb-1`}>
+              {m.icon}
+              <span className="text-xs font-semibold">{m.label}</span>
+            </div>
+            <p className={`text-2xl font-bold ${m.color}`}>{m.value}</p>
+          </div>
+        ))}
+      </motion.div>
 
+      {/* Filtros */}
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+        className={`${tc.cardShadow} p-4`}>
+        <div className="flex flex-col md:flex-row gap-3 items-start md:items-center">
+          <div className="flex-1 min-w-[200px]">
+            <SearchBar value={searchTerm} onChange={setSearchTerm} placeholder="Buscar proyectos..." />
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Filtro mis proyectos */}
+            <button
+              onClick={() => setSoloMisProyectos(!soloMisProyectos)}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border transition-all ${
+                soloMisProyectos
+                  ? 'bg-light-accent/20 dark:bg-codaini-cyan/20 border-light-accent/40 dark:border-codaini-cyan/40 text-light-accent dark:text-codaini-cyan'
+                  : `${tc.border} ${tc.surface2} ${tc.textMuted}`
+              }`}
+            >
+              <Eye className="w-3.5 h-3.5" />
+              Mis proyectos
+            </button>
+            {/* Filtro estado */}
+            <select
+              value={filtroEstado}
+              onChange={e => setFiltroEstado(e.target.value)}
+              className={`${tc.input} !py-2 text-xs w-auto`}
+            >
+              <option value="">Todos los estados</option>
+              <option value="Pendiente">Pendiente</option>
+              <option value="En progreso">En progreso</option>
+              <option value="Completado">Completado</option>
+              <option value="Cancelado">Cancelado</option>
+            </select>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Grid de proyectos */}
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
         {filtered.length === 0 ? (
-          <div className={`text-center py-16 ${tc.textMuted}`}>
-            <p className="text-sm">No se encontraron proyectos</p>
+          <div className={`${tc.cardShadow} p-16 text-center`}>
+            <TrendingUp className={`w-10 h-10 ${tc.textMuted} mx-auto mb-3`} />
+            <p className={`text-sm ${tc.textMuted}`}>
+              {soloMisProyectos ? 'No tienes proyectos asignados' : 'No se encontraron proyectos'}
+            </p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
